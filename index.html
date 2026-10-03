@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
@@ -198,7 +198,7 @@ input,textarea{font-family:inherit;outline:none}
       <textarea id="c_body" placeholder="Nội dung thư..."></textarea>
     </div>
     <div class="file-list" id="fileList"></div>
-    <div class="hint">Có thể đính kèm tệp, mỗi tệp tối đa 1GB.</div>
+    <div class="hint">Có thể đính kèm tệp, mỗi tệp tối đa 25MB.</div>
     <div class="cprog" id="cprog"><div></div></div>
     <div class="cerr" id="c_err"></div>
     <div class="cfoot">
@@ -220,6 +220,8 @@ let TOKEN = localStorage.getItem('vndt_token') || '';
 let ME = null;
 let CURBOX = 'inbox';
 let pendingFiles = [];
+let MAX_FILE = 1073741824; // sẽ được cập nhật từ máy chủ
+let R2_ON = false;        // có dùng Cloudflare R2 hay không
 
 function h(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return (b/1024).toFixed(1)+' KB';if(b<1073741824)return (b/1048576).toFixed(1)+' MB';return (b/1073741824).toFixed(2)+' GB';}
@@ -341,7 +343,7 @@ async function openMail(id){
   if(m.attachments.length){
     atts='<div class="att-box"><h4>'+m.attachments.length+' tệp đính kèm</h4>';
     for(const a of m.attachments){
-      atts+='<span class="att-chip" onclick="dl('+a.id+')"><svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>'+h(a.filename)+' <small>('+fmtSize(a.size)+')</small></span>';
+      atts+='<span class="att-chip" onclick="dl('+a.id+',\''+(a.storage||'local')+'\')"><svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>'+h(a.filename)+' <small>('+fmtSize(a.size)+')</small></span>';
     }
     atts+='</div>';
   }
@@ -355,8 +357,16 @@ async function openMail(id){
     '<div class="bodytext">'+h(m.body||'')+'</div>'+atts+'</div>';
 }
 
-async function dl(aid){
-  // tải qua fetch kèm token rồi mở blob
+async function dl(aid, storage){
+  if(storage==='r2'){
+    // Lấy URL tạm rồi tải thắng từ R2 (không qua máy chủ)
+    try{
+      const d=await api('/api/attachment/'+aid);
+      const a=document.createElement('a');a.href=d.url;a.download='';document.body.appendChild(a);a.click();a.remove();
+    }catch(e){alert('Không tải được tệp: '+e);}
+    return;
+  }
+  // Tệp lưu cục bộ trên máy chủ
   const r=await fetch(API+'/api/attachment/'+aid,{headers:{'Authorization':'Bearer '+TOKEN}});
   if(!r.ok){alert('Không tải được tệp.');return;}
   const cd=r.headers.get('Content-Disposition')||'';
@@ -388,7 +398,7 @@ function replyTo(email,subj){openCompose(email,subj&&subj.startsWith('Re:')?subj
 
 function addFiles(fl){
   for(const f of fl){
-    if(f.size>1073741824){document.getElementById('c_err').textContent='“'+f.name+'” vượt quá 1GB, không thể đính kèm.';continue;}
+    if(f.size>MAX_FILE){document.getElementById('c_err').textContent='“'+f.name+'” vượt quá giới hạn '+fmtSize(MAX_FILE)+', không thể đính kèm.';continue;}
     pendingFiles.push(f);
   }
   document.getElementById('fileInput').value='';
@@ -408,6 +418,8 @@ function doSend(){
   const body=document.getElementById('c_body').value;
   const err=document.getElementById('c_err'); err.textContent='';
   if(!to||to.indexOf('@')<0){err.textContent='Vui lòng nhập email người nhận hợp lệ.';return;}
+  if(R2_ON) return doSendR2(to,subj,body);
+
   const fd=new FormData();
   fd.append('recipient',to); fd.append('subject',subj); fd.append('body',body);
   pendingFiles.forEach(f=>fd.append('files',f));
@@ -427,8 +439,54 @@ function doSend(){
   xhr.send(fd);
 }
 
+// Chế độ R2: tải từng file THẬhe LÊN R2 rồi gửi thư kèm thông tin file
+function doSendR2(to,subj,body){
+  const err=document.getElementById('c_err');
+  const btn=document.getElementById('sendBtn'); btn.disabled=true; btn.textContent='Đang gửi...';
+  const prog=document.getElementById('cprog'); prog.style.display='block';
+  const bar=prog.firstElementChild; bar.style.width='0%';
+  const uploaded=[];
+  let idx=0;
+  function finish(){
+    api('/api/send',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({recipient:to,subject:subj,body:body,attachments:uploaded})})
+      .then(()=>{btn.disabled=false;btn.textContent='Gửi';closeCompose();if(CURBOX==='sent')loadBox();alert('Đã gửi thư!');})
+      .catch(e=>{btn.disabled=false;btn.textContent='Gửi';err.textContent=''+e;prog.style.display='none';});
+  }
+  function next(){
+    if(idx>=pendingFiles.length){finish();return;}
+    const f=pendingFiles[idx];
+    // 1) xin URL tạm
+    api('/api/presign-upload',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({filename:f.name,size:f.size,mime:f.type||'application/octet-stream'})})
+      .then(p=>{
+        // 2) PUT thắng lên R2
+        const xhr=new XMLHttpRequest();
+        xhr.open('PUT',p.url);
+        xhr.setRequestHeader('Content-Type',p.mime);
+        xhr.upload.onprogress=e=>{if(e.lengthComputable){
+          const per=(idx+e.loaded/e.total)/pendingFiles.length*100;
+          bar.style.width=per.toFixed(0)+'%';}};
+        xhr.onload=()=>{
+          if(xhr.status>=200&&xhr.status<300){
+            uploaded.push({filename:f.name,size:f.size,mime:p.mime,key:p.key});
+            idx++; next();
+          }else{btn.disabled=false;btn.textContent='Gửi';prog.style.display='none';
+            err.textContent='Tải lên R2 thất bại (mã '+xhr.status+'). Kiểm tra cấu hình CORS của bucket.';}
+        };
+        xhr.onerror=()=>{btn.disabled=false;btn.textContent='Gửi';prog.style.display='none';
+          err.textContent='Không kết nối được R2. Thường do chưa bật CORS cho bucket.';};
+        xhr.send(f);
+      })
+      .catch(e=>{btn.disabled=false;btn.textContent='Gửi';prog.style.display='none';err.textContent=''+e;});
+  }
+  next();
+}
+
 /* ---------- Boot ---------- */
 (async function(){
+  try{const cfg=await api('/api/config');MAX_FILE=cfg.max_file;R2_ON=!!cfg.r2;
+    document.querySelector('.hint').textContent='Có thể đính kèm tệp, mỗi tệp tối đa '+fmtSize(MAX_FILE)+(R2_ON?' (lưu trên Cloudflare R2)':'.');}catch(e){}
   if(TOKEN){
     try{const d=await api('/api/me');ME={email:d.email,name:d.name};enterApp();}
     catch(e){TOKEN='';localStorage.removeItem('vndt_token');}
