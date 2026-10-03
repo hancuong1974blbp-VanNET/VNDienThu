@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VNĐiện Thư – Email Việt Nam</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23db4437'/%3E%3Cpath d='M12 20h40v24H12z' fill='%23fff'/%3E%3Cpath d='M12 20l20 15 20-15' fill='none' stroke='%23db4437' stroke-width='3'/%3E%3Cpath d='M44 10h12v12z' fill='%23ffcd00'/%3E%3C/svg%3E">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Roboto','Segoe UI',Arial,sans-serif;background:#f5f5f5;color:#333}
+button{font-family:inherit;cursor:pointer;border:none;outline:none}
+input,textarea{font-family:inherit;outline:none}
+.hidden{display:none!important}
+
+/* ---------- Auth screen ---------- */
+#auth{min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#db4437,#b33225)}
+.auth-card{background:#fff;width:380px;max-width:92vw;border-radius:2px;
+  box-shadow:0 2px 8px rgba(0,0,0,.3);padding:32px 28px}
+.auth-logo{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:4px}
+.auth-logo svg{width:40px;height:40px}
+.auth-logo b{font-size:22px;color:#db4437;font-weight:500}
+.auth-sub{text-align:center;color:#888;font-size:13px;margin-bottom:22px}
+.field{position:relative;margin:18px 0}
+.field input{width:100%;border:none;border-bottom:1px solid #ccc;padding:8px 2px;font-size:15px;background:transparent}
+.field input:focus{border-bottom:2px solid #db4437}
+.field label{position:absolute;left:2px;top:8px;color:#999;font-size:15px;
+  pointer-events:none;transition:.2s}
+.field input:focus+label,.field input:not(:placeholder-shown)+label{
+  top:-12px;font-size:12px;color:#db4437}
+.btn-primary{background:#db4437;color:#fff;text-transform:uppercase;font-size:14px;
+  letter-spacing:.5px;padding:11px 18px;border-radius:2px;width:100%;margin-top:10px;
+  box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.btn-primary:hover{background:#c23527}
+.auth-switch{text-align:center;margin-top:16px;font-size:13px;color:#666}
+.auth-switch a{color:#db4437;cursor:pointer;text-decoration:none}
+.err{color:#db4437;font-size:13px;margin-top:10px;text-align:center;min-height:16px}
+
+/* ---------- App shell ---------- */
+#app{display:flex;flex-direction:column;height:100vh}
+.topbar{height:56px;background:#db4437;color:#fff;display:flex;align-items:center;
+  padding:0 16px;gap:12px;box-shadow:0 1px 4px rgba(0,0,0,.3);flex-shrink:0}
+.topbar svg.brand{width:30px;height:30px}
+.topbar .title{font-size:20px;font-weight:500}
+.topbar .spacer{flex:1}
+.topbar .me{font-size:14px;opacity:.95}
+.topbar .logout{background:rgba(255,255,255,.15);color:#fff;padding:7px 14px;
+  border-radius:2px;font-size:13px;text-transform:uppercase}
+.topbar .logout:hover{background:rgba(255,255,255,.3)}
+
+.main{flex:1;display:flex;overflow:hidden}
+.sidebar{width:220px;background:#fff;border-right:1px solid #e5e5e5;padding:16px 10px;flex-shrink:0}
+.compose-btn{background:#fff;color:#db4437;border:1px solid #ddd;border-radius:24px;
+  padding:12px 22px;font-size:15px;box-shadow:0 1px 3px rgba(0,0,0,.15);
+  display:flex;align-items:center;gap:10px;width:100%;margin-bottom:16px;font-weight:500}
+.compose-btn:hover{box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.compose-btn svg{width:18px;height:18px;fill:#db4437}
+.nav-item{display:flex;align-items:center;gap:14px;padding:11px 16px;border-radius:0 24px 24px 0;
+  color:#444;font-size:14px;cursor:pointer;margin:2px 0}
+.nav-item svg{width:18px;height:18px;fill:#777}
+.nav-item:hover{background:#f1f1f1}
+.nav-item.active{background:#fce8e6;color:#db4437;font-weight:500}
+.nav-item.active svg{fill:#db4437}
+.nav-item .count{margin-left:auto;font-size:12px;background:#db4437;color:#fff;
+  border-radius:10px;padding:1px 7px}
+
+.content{flex:1;overflow-y:auto;background:#fff}
+.list-head{padding:14px 20px;border-bottom:1px solid #eee;font-size:16px;color:#555;
+  display:flex;align-items:center;gap:10px}
+.mail-row{display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:1px solid #f0f0f0;cursor:pointer}
+.mail-row:hover{box-shadow:inset 0 0 0 9999px rgba(0,0,0,.015);background:#fafafa}
+.mail-row.unread{background:#f7faff;font-weight:500}
+.mail-row .who{width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.mail-row .subj{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;color:#444}
+.mail-row .subj small{color:#999;font-weight:400}
+.mail-row .clip{width:16px;height:16px;fill:#999}
+.mail-row .when{font-size:12px;color:#999;width:90px;text-align:right}
+.empty{padding:60px 20px;text-align:center;color:#aaa}
+
+/* ---------- Reader ---------- */
+.reader{padding:24px 32px;max-width:860px}
+.reader h1{font-size:22px;font-weight:400;margin-bottom:18px;color:#222}
+.reader .meta{display:flex;align-items:center;gap:12px;margin-bottom:20px;
+  padding-bottom:16px;border-bottom:1px solid #eee}
+.avatar{width:40px;height:40px;border-radius:50%;background:#db4437;color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:18px}
+.reader .meta .info b{font-size:14px}
+.reader .meta .info div{font-size:12px;color:#888}
+.reader .bodytext{font-size:15px;line-height:1.7;white-space:pre-wrap;color:#333}
+.att-box{margin-top:24px;border-top:1px solid #eee;padding-top:16px}
+.att-box h4{font-size:13px;color:#888;margin-bottom:10px;text-transform:uppercase}
+.att-chip{display:inline-flex;align-items:center;gap:8px;border:1px solid #ddd;
+  border-radius:4px;padding:8px 12px;margin:0 8px 8px 0;font-size:13px;cursor:pointer;background:#fafafa}
+.att-chip:hover{background:#f0f0f0}
+.att-chip svg{width:16px;height:16px;fill:#db4437}
+.att-chip small{color:#999}
+.reader-actions{margin-bottom:18px;display:flex;gap:10px}
+.reader-actions button{font-size:13px;padding:7px 14px;border-radius:2px;background:#eee;color:#555}
+.reader-actions button:hover{background:#e0e0e0}
+.reader-actions .del{color:#db4437}
+
+/* ---------- Compose modal ---------- */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;
+  align-items:center;justify-content:center;z-index:50}
+.compose{background:#fff;width:620px;max-width:95vw;border-radius:4px;
+  box-shadow:0 4px 20px rgba(0,0,0,.3);overflow:hidden}
+.compose .ch{background:#404040;color:#fff;padding:12px 16px;font-size:14px;
+  display:flex;align-items:center}
+.compose .ch .x{margin-left:auto;background:transparent;color:#fff;font-size:18px}
+.compose .cb{padding:16px}
+.compose .cb input,.compose .cb textarea{width:100%;border:none;border-bottom:1px solid #eee;
+  padding:9px 2px;font-size:14px;margin-bottom:4px}
+.compose .cb textarea{min-height:200px;resize:vertical;border-bottom:none;line-height:1.6}
+.cfoot{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid #eee}
+.send-btn{background:#db4437;color:#fff;text-transform:uppercase;font-size:14px;
+  padding:10px 24px;border-radius:2px;font-weight:500}
+.send-btn:hover{background:#c23527}
+.send-btn:disabled{background:#f0a9a1;cursor:default}
+.attach-btn{background:transparent;display:flex;align-items:center;gap:6px;color:#666;font-size:13px}
+.attach-btn svg{width:20px;height:20px;fill:#777}
+.file-list{padding:0 16px 10px}
+.file-item{display:flex;align-items:center;gap:8px;font-size:13px;color:#555;
+  padding:5px 0;border-bottom:1px solid #f5f5f5}
+.file-item .rm{margin-left:auto;color:#db4437;background:transparent;font-size:16px}
+.file-item .sz{color:#999;font-size:12px}
+.cprog{height:4px;background:#eee;border-radius:2px;overflow:hidden;margin:0 16px 10px;display:none}
+.cprog>div{height:100%;background:#db4437;width:0%}
+.cerr{color:#db4437;font-size:13px;padding:0 16px 10px;min-height:0}
+.hint{font-size:11px;color:#aaa;padding:0 16px 8px}
+.footer-made{position:fixed;bottom:6px;right:12px;font-size:11px;color:#bbb}
+</style>
+</head>
+<body>
+
+<!-- ============ AUTH ============ -->
+<div id="auth">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <svg viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#db4437"/><path d="M12 20h40v24H12z" fill="#fff"/><path d="M12 20l20 15 20-15" fill="none" stroke="#db4437" stroke-width="3"/><path d="M44 10h12v12z" fill="#ffcd00"/></svg>
+      <b>VNĐiện Thư</b>
+    </div>
+    <div class="auth-sub" id="authSub">Đăng nhập để vào hộp thư của bạn</div>
+
+    <div id="loginForm">
+      <div class="field"><input id="li_email" type="email" placeholder=" "><label>Địa chỉ email</label></div>
+      <div class="field"><input id="li_pwd" type="password" placeholder=" "><label>Mật khẩu</label></div>
+      <button class="btn-primary" onclick="doLogin()">Đăng nhập</button>
+      <div class="err" id="li_err"></div>
+      <div class="auth-switch">Chưa có tài khoản? <a onclick="showRegister()">Đăng ký ngay</a></div>
+    </div>
+
+    <div id="regForm" class="hidden">
+      <div class="field"><input id="rg_name" type="text" placeholder=" "><label>Họ và tên</label></div>
+      <div class="field"><input id="rg_email" type="email" placeholder=" "><label>Địa chỉ email (vd: an@vndienthu.vn)</label></div>
+      <div class="field"><input id="rg_pwd" type="password" placeholder=" "><label>Mật khẩu</label></div>
+      <button class="btn-primary" onclick="doRegister()">Tạo tài khoản</button>
+      <div class="err" id="rg_err"></div>
+      <div class="auth-switch">Đã có tài khoản? <a onclick="showLogin()">Đăng nhập</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app" class="hidden">
+  <div class="topbar">
+    <svg class="brand" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#fff"/><path d="M12 20h40v24H12z" fill="#db4437"/><path d="M12 20l20 15 20-15" fill="none" stroke="#fff" stroke-width="3"/></svg>
+    <span class="title">VNĐiện Thư</span>
+    <span class="spacer"></span>
+    <span class="me" id="meLabel"></span>
+    <button class="logout" onclick="doLogout()">Đăng xuất</button>
+  </div>
+  <div class="main">
+    <div class="sidebar">
+      <button class="compose-btn" onclick="openCompose()">
+        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        Soạn thư
+      </button>
+      <div class="nav-item active" id="nav-inbox" onclick="switchBox('inbox')">
+        <svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm0 12h-4a3 3 0 01-6 0H5V5h14v10z"/></svg>
+        Hộp thư đến <span class="count hidden" id="unreadCount">0</span>
+      </div>
+      <div class="nav-item" id="nav-sent" onclick="switchBox('sent')">
+        <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        Thư đã gửi
+      </div>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<!-- ============ COMPOSE MODAL ============ -->
+<div class="overlay hidden" id="composeOverlay">
+  <div class="compose">
+    <div class="ch">Tin nhắn mới <button class="x" onclick="closeCompose()">✕</button></div>
+    <div class="cb">
+      <input id="c_to" type="email" placeholder="Đến (email người nhận)">
+      <input id="c_subj" type="text" placeholder="Tiêu đề">
+      <textarea id="c_body" placeholder="Nội dung thư..."></textarea>
+    </div>
+    <div class="file-list" id="fileList"></div>
+    <div class="hint">Có thể đính kèm tệp, mỗi tệp tối đa 1GB.</div>
+    <div class="cprog" id="cprog"><div></div></div>
+    <div class="cerr" id="c_err"></div>
+    <div class="cfoot">
+      <button class="send-btn" id="sendBtn" onclick="doSend()">Gửi</button>
+      <button class="attach-btn" onclick="document.getElementById('fileInput').click()">
+        <svg viewBox="0 0 24 24"><path d="M16.5 6v11.5a4 4 0 01-8 0V5a2.5 2.5 0 015 0v10.5a1 1 0 01-2 0V6H10v9.5a2.5 2.5 0 005 0V5a4 4 0 00-8 0v12.5a5.5 5.5 0 0011 0V6h-1.5z"/></svg>
+        Đính kèm tệp
+      </button>
+      <input type="file" id="fileInput" multiple class="hidden" onchange="addFiles(this.files)">
+    </div>
+  </div>
+</div>
+
+<div class="footer-made">Made in Vietnam 🇻🇳</div>
+
+<script>
+const API = '';
+let TOKEN = localStorage.getItem('vndt_token') || '';
+let ME = null;
+let CURBOX = 'inbox';
+let pendingFiles = [];
+
+function h(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return (b/1024).toFixed(1)+' KB';if(b<1073741824)return (b/1048576).toFixed(1)+' MB';return (b/1073741824).toFixed(2)+' GB';}
+function fmtTime(t){const d=new Date(t*1000);const now=new Date();const sameDay=d.toDateString()===now.toDateString();if(sameDay)return d.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});return d.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit'});}
+
+async function api(path, opts={}){
+  opts.headers = opts.headers || {};
+  if(TOKEN) opts.headers['Authorization'] = 'Bearer '+TOKEN;
+  const r = await fetch(API+path, opts);
+  let data = null; try{ data = await r.json(); }catch(e){}
+  if(!r.ok) throw (data && data.error) || ('Lỗi '+r.status);
+  return data;
+}
+
+/* ---------- Auth UI ---------- */
+function showRegister(){document.getElementById('loginForm').classList.add('hidden');document.getElementById('regForm').classList.remove('hidden');document.getElementById('authSub').textContent='Tạo tài khoản VNĐiện Thư mới';}
+function showLogin(){document.getElementById('regForm').classList.add('hidden');document.getElementById('loginForm').classList.remove('hidden');document.getElementById('authSub').textContent='Đăng nhập để vào hộp thư của bạn';}
+
+async function doLogin(){
+  const email=document.getElementById('li_email').value.trim();
+  const pwd=document.getElementById('li_pwd').value;
+  const err=document.getElementById('li_err'); err.textContent='';
+  try{
+    const d=await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pwd})});
+    TOKEN=d.token; localStorage.setItem('vndt_token',TOKEN); ME={email:d.email,name:d.name};
+    enterApp();
+  }catch(e){err.textContent=e;}
+}
+async function doRegister(){
+  const name=document.getElementById('rg_name').value.trim();
+  const email=document.getElementById('rg_email').value.trim();
+  const pwd=document.getElementById('rg_pwd').value;
+  const err=document.getElementById('rg_err'); err.textContent='';
+  try{
+    const d=await api('/api/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,password:pwd})});
+    TOKEN=d.token; localStorage.setItem('vndt_token',TOKEN); ME={email:d.email,name:d.name};
+    enterApp();
+  }catch(e){err.textContent=e;}
+}
+async function doLogout(){
+  try{await api('/api/logout',{method:'POST'});}catch(e){}
+  TOKEN=''; localStorage.removeItem('vndt_token'); ME=null;
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('auth').classList.remove('hidden');
+}
+
+function enterApp(){
+  document.getElementById('auth').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('meLabel').textContent=ME.name+' · '+ME.email;
+  switchBox('inbox');
+}
+
+/* ---------- Boxes ---------- */
+function switchBox(box){
+  CURBOX=box;
+  document.getElementById('nav-inbox').classList.toggle('active',box==='inbox');
+  document.getElementById('nav-sent').classList.toggle('active',box==='sent');
+  loadBox();
+}
+
+async function loadBox(){
+  const c=document.getElementById('content');
+  c.innerHTML='<div class="empty">Đang tải...</div>';
+  try{
+    const d=await api('/api/'+(CURBOX==='inbox'?'inbox':'sent'));
+    renderList(d.mails);
+    if(CURBOX==='inbox'){
+      const unread=d.mails.filter(m=>!m.read).length;
+      const badge=document.getElementById('unreadCount');
+      badge.textContent=unread; badge.classList.toggle('hidden',unread===0);
+    }
+  }catch(e){c.innerHTML='<div class="empty">'+h(e)+'</div>';}
+}
+
+function renderList(mails){
+  const c=document.getElementById('content');
+  const title=CURBOX==='inbox'?'Hộp thư đến':'Thư đã gửi';
+  if(!mails.length){c.innerHTML='<div class="list-head">'+title+'</div><div class="empty">Chưa có thư nào.</div>';return;}
+  let html='<div class="list-head">'+title+'</div>';
+  for(const m of mails){
+    const who=CURBOX==='inbox'?m.sender:('Đến: '+m.recipient);
+    const clip=m.attachments.length?'<svg class="clip" viewBox="0 0 24 24"><path d="M16.5 6v11.5a4 4 0 01-8 0V5a2.5 2.5 0 015 0v10.5a1 1 0 01-2 0V6H10v9.5a2.5 2.5 0 005 0V5a4 4 0 00-8 0v12.5a5.5 5.5 0 0011 0V6h-1.5z"/></svg>':'';
+    const preview=h((m.body||'').slice(0,60));
+    html+='<div class="mail-row '+(CURBOX==='inbox'&&!m.read?'unread':'')+'" onclick="openMail('+m.id+')">'+
+      '<div class="who">'+h(who)+'</div>'+
+      '<div class="subj">'+h(m.subject||'(Không tiêu đề)')+' <small>— '+preview+'</small></div>'+
+      clip+'<div class="when">'+fmtTime(m.created)+'</div></div>';
+  }
+  c.innerHTML=html;
+}
+
+let LASTMAILS={};
+async function openMail(id){
+  const box=CURBOX==='inbox'?'inbox':'sent';
+  const d=await api('/api/'+box);
+  const m=d.mails.find(x=>x.id===id); if(!m)return;
+  if(box==='inbox'&&!m.read){try{await api('/api/mail/'+id+'/read',{method:'POST'});}catch(e){}}
+  const c=document.getElementById('content');
+  const who=box==='inbox'?m.sender:m.recipient;
+  const initial=(who[0]||'?').toUpperCase();
+  let atts='';
+  if(m.attachments.length){
+    atts='<div class="att-box"><h4>'+m.attachments.length+' tệp đính kèm</h4>';
+    for(const a of m.attachments){
+      atts+='<span class="att-chip" onclick="dl('+a.id+')"><svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>'+h(a.filename)+' <small>('+fmtSize(a.size)+')</small></span>';
+    }
+    atts+='</div>';
+  }
+  c.innerHTML='<div class="reader">'+
+    '<div class="reader-actions"><button onclick="loadBox()">← Quay lại</button>'+
+    (box==='inbox'?'<button onclick="replyTo(\''+h(m.sender)+'\',\''+h(m.subject)+'\')">Trả lời</button>':'')+
+    '<button class="del" onclick="delMail('+m.id+')">Xóa</button></div>'+
+    '<h1>'+h(m.subject||'(Không tiêu đề)')+'</h1>'+
+    '<div class="meta"><div class="avatar">'+h(initial)+'</div>'+
+      '<div class="info"><b>'+h(who)+'</b><div>'+(box==='inbox'?'Gửi tới bạn':'Bạn đã gửi')+' · '+new Date(m.created*1000).toLocaleString('vi-VN')+'</div></div></div>'+
+    '<div class="bodytext">'+h(m.body||'')+'</div>'+atts+'</div>';
+}
+
+async function dl(aid){
+  // tải qua fetch kèm token rồi mở blob
+  const r=await fetch(API+'/api/attachment/'+aid,{headers:{'Authorization':'Bearer '+TOKEN}});
+  if(!r.ok){alert('Không tải được tệp.');return;}
+  const cd=r.headers.get('Content-Disposition')||'';
+  let name='taptin'; const mt=cd.match(/filename\*?=(?:UTF-8''|")?([^";]+)/i); if(mt)name=decodeURIComponent(mt[1]);
+  const blob=await r.blob();
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),10000);
+}
+
+async function delMail(id){
+  if(!confirm('Xóa thư này?'))return;
+  try{await api('/api/mail/'+id,{method:'DELETE'});loadBox();}catch(e){alert(e);}
+}
+
+/* ---------- Compose ---------- */
+function openCompose(to,subj){
+  document.getElementById('composeOverlay').classList.remove('hidden');
+  document.getElementById('c_to').value=to||'';
+  document.getElementById('c_subj').value=subj||'';
+  document.getElementById('c_body').value='';
+  pendingFiles=[]; renderFiles();
+  document.getElementById('c_err').textContent='';
+  document.getElementById('cprog').style.display='none';
+  document.getElementById('cprog').firstElementChild.style.width='0%';
+}
+function closeCompose(){document.getElementById('composeOverlay').classList.add('hidden');}
+function replyTo(email,subj){openCompose(email,subj&&subj.startsWith('Re:')?subj:('Re: '+(subj||'')));}
+
+function addFiles(fl){
+  for(const f of fl){
+    if(f.size>1073741824){document.getElementById('c_err').textContent='“'+f.name+'” vượt quá 1GB, không thể đính kèm.';continue;}
+    pendingFiles.push(f);
+  }
+  document.getElementById('fileInput').value='';
+  renderFiles();
+}
+function renderFiles(){
+  const el=document.getElementById('fileList'); el.innerHTML='';
+  pendingFiles.forEach((f,i)=>{
+    el.innerHTML+='<div class="file-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="#777"><path d="M16.5 6v11.5a4 4 0 01-8 0V5a2.5 2.5 0 015 0v10.5a1 1 0 01-2 0V6H10v9.5a2.5 2.5 0 005 0V5a4 4 0 00-8 0v12.5a5.5 5.5 0 0011 0V6h-1.5z"/></svg>'+h(f.name)+' <span class="sz">('+fmtSize(f.size)+')</span><button class="rm" onclick="rmFile('+i+')">✕</button></div>';
+  });
+}
+function rmFile(i){pendingFiles.splice(i,1);renderFiles();}
+
+function doSend(){
+  const to=document.getElementById('c_to').value.trim();
+  const subj=document.getElementById('c_subj').value.trim();
+  const body=document.getElementById('c_body').value;
+  const err=document.getElementById('c_err'); err.textContent='';
+  if(!to||to.indexOf('@')<0){err.textContent='Vui lòng nhập email người nhận hợp lệ.';return;}
+  const fd=new FormData();
+  fd.append('recipient',to); fd.append('subject',subj); fd.append('body',body);
+  pendingFiles.forEach(f=>fd.append('files',f));
+  const btn=document.getElementById('sendBtn'); btn.disabled=true; btn.textContent='Đang gửi...';
+  const prog=document.getElementById('cprog'); prog.style.display='block';
+  const bar=prog.firstElementChild;
+  const xhr=new XMLHttpRequest();
+  xhr.open('POST',API+'/api/send');
+  xhr.setRequestHeader('Authorization','Bearer '+TOKEN);
+  xhr.upload.onprogress=e=>{if(e.lengthComputable)bar.style.width=(e.loaded/e.total*100).toFixed(0)+'%';};
+  xhr.onload=()=>{
+    btn.disabled=false; btn.textContent='Gửi';
+    if(xhr.status>=200&&xhr.status<300){closeCompose();if(CURBOX==='sent')loadBox();alert('Đã gửi thư!');}
+    else{let m='Gửi thất bại.';try{m=JSON.parse(xhr.responseText).error||m;}catch(e){} err.textContent=m;prog.style.display='none';}
+  };
+  xhr.onerror=()=>{btn.disabled=false;btn.textContent='Gửi';err.textContent='Lỗi kết nối máy chủ.';prog.style.display='none';};
+  xhr.send(fd);
+}
+
+/* ---------- Boot ---------- */
+(async function(){
+  if(TOKEN){
+    try{const d=await api('/api/me');ME={email:d.email,name:d.name};enterApp();}
+    catch(e){TOKEN='';localStorage.removeItem('vndt_token');}
+  }
+})();
+</script>
+</body>
+</html>
