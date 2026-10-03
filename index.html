@@ -271,6 +271,20 @@ function enterApp(){
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('meLabel').textContent=ME.name+' · '+ME.email;
   switchBox('inbox');
+  startAutoRefresh();
+}
+
+/* Tự động kiểm tra thư mới mỗi 15 giây (chỉ khi đang xem danh sách hộp thư đến) */
+let AUTO_TIMER=null;
+function startAutoRefresh(){
+  if(AUTO_TIMER)clearInterval(AUTO_TIMER);
+  AUTO_TIMER=setInterval(()=>{
+    if(!TOKEN){clearInterval(AUTO_TIMER);return;}
+    if(CURBOX!=='inbox')return;
+    const reading=document.querySelector('.reader');
+    if(reading)return; // đang đọc 1 thư thì không làm phiền
+    loadBox();
+  },15000);
 }
 
 /* ---------- Boxes ---------- */
@@ -298,8 +312,10 @@ async function loadBox(){
 function renderList(mails){
   const c=document.getElementById('content');
   const title=CURBOX==='inbox'?'Hộp thư đến':'Thư đã gửi';
-  if(!mails.length){c.innerHTML='<div class="list-head">'+title+'</div><div class="empty">Chưa có thư nào.</div>';return;}
-  let html='<div class="list-head">'+title+'</div>';
+  const head='<div class="list-head">'+title+'<span style="flex:1"></span>'+
+    '<button onclick="loadBox()" style="background:#eee;color:#555;font-size:13px;padding:6px 14px;border-radius:2px">↻ Làm mới</button></div>';
+  if(!mails.length){c.innerHTML=head+'<div class="empty">Chưa có thư nào.</div>';return;}
+  let html=head;
   for(const m of mails){
     const who=CURBOX==='inbox'?m.sender:('Đến: '+m.recipient);
     const clip=m.attachments.length?'<svg class="clip" viewBox="0 0 24 24"><path d="M16.5 6v11.5a4 4 0 01-8 0V5a2.5 2.5 0 015 0v10.5a1 1 0 01-2 0V6H10v9.5a2.5 2.5 0 005 0V5a4 4 0 00-8 0v12.5a5.5 5.5 0 0011 0V6h-1.5z"/></svg>':'';
